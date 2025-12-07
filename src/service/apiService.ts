@@ -21,8 +21,17 @@ const handleAPIerror = (error: unknown, options: ApiOption): void => {
   // Extract error message from different error formats
   if (error && typeof error === 'object') {
     if ('response' in error && error.response && typeof error.response === 'object') {
-      const response = error.response as { data?: { message?: string } };
+      const response = error.response as { data?: { message?: string }; status?: number };
       message = response.data?.message || message;
+      
+      // Log detailed error in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('API Error Response:', {
+          status: response.status,
+          data: response.data,
+          message: response.data?.message,
+        });
+      }
     } else if ('data' in error && error.data && typeof error.data === 'object') {
       const data = error.data as { message?: string };
       message = data.message || message;
@@ -48,9 +57,20 @@ export const postRequest = async <T = unknown>(
   options: ApiOption = defaultOptions
 ): Promise<ApiResponse<T> | null> => {
   try {
+    // For FormData, don't set Content-Type - let browser set it with boundary
+    // For JSON, set Content-Type explicitly
     const headers: Record<string, string> = {};
     if (!(body instanceof FormData)) {
       headers["Content-Type"] = "application/json";
+    }
+    // If FormData, axios will automatically set Content-Type: multipart/form-data with boundary
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('POST Request:', {
+        url,
+        isFormData: body instanceof FormData,
+        headers,
+      });
     }
 
     const res = await api.post(url, body, { headers });

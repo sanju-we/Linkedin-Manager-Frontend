@@ -70,3 +70,29 @@ export const getErrorMessage = (error: unknown): string => {
   return 'An unexpected error occurred';
 };
 
+/**
+ * Checks if today is Friday
+ */
+export const isFriday = (): boolean => {
+  const today = new Date();
+  return today.getDay() === 5; // 5 = Friday (0 = Sunday)
+};
+
+/**
+ * Formats growth percentage with proper sign
+ */
+export const formatGrowth = (growth: number | undefined): { value: string; isPositive: boolean; color: string } => {
+  if (growth === undefined || growth === null) {
+    return { value: "0%", isPositive: true, color: "text-gray-600" };
+  }
+  
+  const isPositive = growth >= 0;
+  const sign = isPositive ? "+" : "";
+  const color = isPositive ? "text-green-600" : "text-red-600";
+  
+  return {
+    value: `${sign}${growth.toFixed(1)}%`,
+    isPositive,
+    color,
+  };
+};

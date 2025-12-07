@@ -6,7 +6,7 @@
 export const env = {
   api: {
     baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001/api',
-    refreshTokenURL: process.env.NEXT_PUBLIC_REFRESH_TOKEN_URL || 'http://localhost:5001/api/user/refresh',
+    refreshTokenURL: process.env.NEXT_PUBLIC_REFRESH_TOKEN_URL || 'http://localhost:5001/api/user/refreshToken',
   },
   app: {
     name: process.env.NEXT_PUBLIC_APP_NAME || 'LinkedIn Management',

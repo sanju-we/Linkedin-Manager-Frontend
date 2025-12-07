@@ -8,9 +8,8 @@ const api = axios.create({
   validateStatus: (status) => {
     return status !== 401 && status !== 403;
   },
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  // Don't set default Content-Type - let axios handle it based on data type
+  // FormData needs multipart/form-data with boundary, which axios sets automatically
 });
 
 // Request interceptor
@@ -19,6 +18,21 @@ api.interceptors.request.use(
     // Log requests in development only
     if (process.env.NODE_ENV === 'development') {
       console.log('Request sent:', request.method?.toUpperCase(), request.url);
+      if (request.data instanceof FormData) {
+        console.log('FormData detected - Content-Type will be set automatically');
+        // Log FormData contents (for debugging)
+        for (const [key, value] of request.data.entries()) {
+          if (value instanceof File) {
+            console.log(`FormData field "${key}":`, {
+              name: value.name,
+              type: value.type,
+              size: `${(value.size / 1024 / 1024).toFixed(2)} MB`,
+            });
+          } else {
+            console.log(`FormData field "${key}":`, value);
+          }
+        }
+      }
     }
     return request;
   },
