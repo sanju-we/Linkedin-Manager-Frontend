@@ -2,30 +2,17 @@
 
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { ExternalLink, Calendar, Shield, Loader2, User, Mail } from "lucide-react";
+import { ExternalLink, Calendar, Shield, Loader2 } from "lucide-react";
 import { USER_SERVICE } from "@/service/APIs/user.api";
-
-// Replace with your actual API import
-// import { USER_SERVICE } from "@/service/APIs/user.api";
+import { UserData } from "@/types";
 
 const getUserProfile = async () => {
-  // Mock API - replace with: const user = await USER_SERVICE.GETPROFILE();
-  const user = await USER_SERVICE.GETPROFILE()
-  console.log('user',user.data)
-  return user.data
+  const user = await USER_SERVICE.GETPROFILE();
+  if (process.env.NODE_ENV === 'development') {
+    console.log('User profile data:', user?.data);
+  }
+  return user?.data;
 };
-
-interface UserData {
-  _id: string;
-  name: string;
-  role: string;
-  linkedAcc?: string;
-  weeklyLimitPic?: string[];
-  currentCount?: number;
-  profile?: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export default function ProfilePage() {
   const [user, setUser] = useState<UserData | null>(null);

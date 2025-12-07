@@ -1,121 +1,173 @@
-import api from "./serverApi"
-import toast from "react-hot-toast"
+import api from "./serverApi";
+import toast from "react-hot-toast";
+import { ApiResponse, ApiError } from "@/types";
 
 type ApiOption = {
-  showToast?: boolean
-}
+  showToast?: boolean;
+};
 
 const defaultOptions: ApiOption = {
-  showToast: true
-}
+  showToast: true,
+};
 
-const handleAPIerror = (error: any, options: ApiOption) => {
-  console.error('Api error', error)
-  if (!options.showToast) return
+/**
+ * Handles API errors and displays toast notifications
+ */
+const handleAPIerror = (error: unknown, options: ApiOption): void => {
+  if (!options.showToast) return;
 
-  const message = error.data.message || error.response.data.message || error.message || 'Request failed';
-  console.log('Api request error', message)
+  let message = 'Request failed. Please try again.';
 
-  if (error.status == 401) {
-    toast.error(message)
-  } else {
-    toast.error(message)
-  }
-}
-
-export const postRequest = async < T = any> (url: string, body: object | FormData, options: ApiOption = defaultOptions) : Promise<T | null> => {
-  try {
-    const headers : Record<string,string> = {}
-    if(!(body instanceof FormData)) {
-      headers["Content-Type"] = "application/json"
+  // Extract error message from different error formats
+  if (error && typeof error === 'object') {
+    if ('response' in error && error.response && typeof error.response === 'object') {
+      const response = error.response as { data?: { message?: string } };
+      message = response.data?.message || message;
+    } else if ('data' in error && error.data && typeof error.data === 'object') {
+      const data = error.data as { message?: string };
+      message = data.message || message;
+    } else if ('message' in error && typeof error.message === 'string') {
+      message = error.message;
     }
-    const res = await api.post(url,body,{headers,validateStatus:(status)=> status != 401 && status !== 403})
-    console.log('response from api',res)
-
-    if(!res.data.success){
-      console.log('res',res)
-      handleAPIerror(res,options)
-    }
-    return res.data
-  } catch (error) {
-    console.log('fucking king')
-    // handleAPIerror(error,options)
-    return null
   }
-}
 
-export const getRequest = async <T = any>(
+  // Log error in development only
+  if (process.env.NODE_ENV === 'development') {
+    console.error('API error:', error);
+  }
+
+  toast.error(message);
+};
+
+/**
+ * Makes a POST request to the API
+ */
+export const postRequest = async <T = unknown>(
   url: string,
-  params?: object,
+  body: object | FormData,
   options: ApiOption = defaultOptions
-): Promise<T | null> => {
+): Promise<ApiResponse<T> | null> => {
   try {
-    console.log('sending request to ',url)
-    const res = await api.get(url, params ? { params , validateStatus:(status)=> status != 401 && status !== 403 } : {validateStatus:(status)=> status != 401 && status !== 403});
-    if (!res.data.success) {
-      handleAPIerror(res,options)
+    const headers: Record<string, string> = {};
+    if (!(body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
     }
+
+    const res = await api.post(url, body, { headers });
+
+    if (!res.data.success) {
+      handleAPIerror(res, options);
+      return null;
+    }
+
     return res.data;
-  } catch (error: any) {
+  } catch (error) {
     handleAPIerror(error, options);
     return null;
   }
 };
 
-export const patchRequest = async <T = any>(
-  url: string,
-  body: object,
-  options: ApiOption = defaultOptions
-): Promise<T | null> => {
-  try {
-    const headers: Record<string, string> = {};
-    if (!(body instanceof FormData)) {
-      headers["Content-Type"] = "application/json";
-    }
-    const res = await api.patch(url, body, { headers,validateStatus:(status)=> status != 401 && status !== 403 });
-    if (!res.data.success) {
-      handleAPIerror(res,options)
-    }
-    return res.data;
-  } catch (error: any) {
-    handleAPIerror(error, options);
-    return null;
-  }
-}
-
-export const putRequest = async <T = any>(
-  url: string,
-  body: object,
-  options: ApiOption = defaultOptions
-): Promise<T | null> => {
-  try {
-    const headers: Record<string, string> = {};
-    if (!(body instanceof FormData)) {
-      headers["Content-Type"] = "application/json";
-    }
-    const res = await api.put(url, body, { headers,validateStatus:(status)=> status != 401 && status !== 403 });
-    if (!res.data.success) {
-      handleAPIerror(res,options)
-    }
-    return res.data;
-  } catch (error: any) {
-    handleAPIerror(error, options);
-    return null;
-  }
-}
-
-export const deleteRequest = async <T = any>(
+/**
+ * Makes a GET request to the API
+ */
+export const getRequest = async <T = unknown>(
   url: string,
   params?: object,
   options: ApiOption = defaultOptions
-): Promise<T | null> => {
+): Promise<ApiResponse<T> | null> => {
   try {
-    const res = await api.delete(url, params ? { params, validateStatus:(status)=> status != 401 && status !== 403 } : {validateStatus:(status)=> status != 401 && status !== 403});
-    if (!res.data.success) {
-      handleAPIerror(res,options)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Sending GET request to:', url);
     }
+
+    const res = await api.get(url, params ? { params } : {});
+
+    if (!res.data.success) {
+      handleAPIerror(res, options);
+      return null;
+    }
+
     return res.data;
-  } catch (error: any) {
+  } catch (error) {
+    handleAPIerror(error, options);
+    return null;
+  }
+};
+
+/**
+ * Makes a PATCH request to the API
+ */
+export const patchRequest = async <T = unknown>(
+  url: string,
+  body: object | FormData,
+  options: ApiOption = defaultOptions
+): Promise<ApiResponse<T> | null> => {
+  try {
+    const headers: Record<string, string> = {};
+    if (!(body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    const res = await api.patch(url, body, { headers });
+
+    if (!res.data.success) {
+      handleAPIerror(res, options);
+      return null;
+    }
+
+    return res.data;
+  } catch (error) {
+    handleAPIerror(error, options);
+    return null;
+  }
+};
+
+/**
+ * Makes a PUT request to the API
+ */
+export const putRequest = async <T = unknown>(
+  url: string,
+  body: object | FormData,
+  options: ApiOption = defaultOptions
+): Promise<ApiResponse<T> | null> => {
+  try {
+    const headers: Record<string, string> = {};
+    if (!(body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    const res = await api.put(url, body, { headers });
+
+    if (!res.data.success) {
+      handleAPIerror(res, options);
+      return null;
+    }
+
+    return res.data;
+  } catch (error) {
+    handleAPIerror(error, options);
+    return null;
+  }
+};
+
+/**
+ * Makes a DELETE request to the API
+ */
+export const deleteRequest = async <T = unknown>(
+  url: string,
+  params?: object,
+  options: ApiOption = defaultOptions
+): Promise<ApiResponse<T> | null> => {
+  try {
+    const res = await api.delete(url, params ? { params } : {});
+
+    if (!res.data.success) {
+      handleAPIerror(res, options);
+      return null;
+    }
+
+    return res.data;
+  } catch (error) {
     handleAPIerror(error, options);
     return null;
   }

@@ -49,8 +49,7 @@ export default function LoginPage() {
 
         try {
             const data = await USER_SERVICE.LOGIN({ name, password });
-            console.log(data)
-            if (data.success) {
+            if (data?.success) {
                 toast.success("Login successful!");
                 router.push("/profile");
             }

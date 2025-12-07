@@ -1,79 +1,101 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { env } from '@/lib/env';
 
-const  api = axios.create({
-  baseURL:  'http://localhost:5001/api' ,
+const api = axios.create({
+  baseURL: env.api.baseURL,
   withCredentials: true,
   validateStatus: (status) => {
     return status !== 401 && status !== 403;
   },
-
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
+// Request interceptor
 api.interceptors.request.use(
   (request) => {
-    console.log('Request sent:', request.method?.toUpperCase(), request.url);
+    // Log requests in development only
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Request sent:', request.method?.toUpperCase(), request.url);
+    }
     return request;
   },
   async (err) => {
-    console.log('error', err);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Request error:', err);
+    }
     return Promise.reject(err);
   },
 );
 
+// Response interceptor
 api.interceptors.response.use(
   (response) => {
-    console.log('response working');
-
     return response;
   },
   async (err) => {
     const originalRequest = err.config;
 
+    // Handle 401 Unauthorized
     if (err.response?.status === 401) {
-      toast.error(err.response.data.message);
-      document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      const errorMessage = err.response?.data?.message || 'Unauthorized. Please login again.';
+      toast.error(errorMessage);
+      
+      // Clear cookies
+      if (typeof document !== 'undefined') {
+        document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      }
+
+      // Redirect to login
       const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
       let redirectTo = '/login';
-      if (pathname.startsWith('/agency')) {
-        redirectTo = '/agency/restricted';
-      } else if (pathname.startsWith('/hotel')) {
-        redirectTo = '/hotel/restricted';
-      } else if (pathname.startsWith('/restaurant')) {
-        redirectTo = '/restaurant/restricted';
-      } else if (pathname.startsWith('/admin')) {
+      
+      // Handle admin routes
+      if (pathname.startsWith('/admin')) {
         redirectTo = '/admin/login';
       }
 
-      setTimeout(() => {
-        window.location.href = redirectTo;
-      }, 2000);
+      if (typeof window !== 'undefined') {
+        setTimeout(() => {
+          window.location.href = redirectTo;
+        }, 2000);
+      }
     }
 
+    // Handle 403 Forbidden - Try to refresh token
     if (err.response?.status === 403 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
         const refreshRes = await axios.post(
-          'http://localhost:5000/api/user/refresh',
+          env.api.refreshTokenURL,
           {},
           { withCredentials: true },
         );
 
-        const accessToken = refreshRes.data.data;
-        console.log('refreshRes.data:', refreshRes.data);
-
-        originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
-        return api(originalRequest);
+        const accessToken = refreshRes.data?.data;
+        
+        if (accessToken) {
+          originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
+          return api(originalRequest);
+        }
       } catch (refreshError) {
-        console.error('Refresh token failed:', refreshError);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Refresh token failed:', refreshError);
+        }
+        
+        // Clear cookies and redirect to login
+        if (typeof document !== 'undefined') {
+          document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        }
+        
         if (typeof window !== 'undefined') {
           window.location.href = '/login';
         }
-        // Optionally logout user here
       }
     }
 
