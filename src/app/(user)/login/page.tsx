@@ -51,7 +51,9 @@ export default function LoginPage() {
             const data = await USER_SERVICE.LOGIN({ name, password });
             if (data?.success) {
                 toast.success("Login successful!");
-                router.push("/profile");
+                setTimeout(() => {
+                    router.push("/profile");
+                }, 500);
             }
         } catch (error: any) {
             setApiError(error?.message || "Login failed. Please try again.");
