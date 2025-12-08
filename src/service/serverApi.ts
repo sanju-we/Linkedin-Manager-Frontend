@@ -85,7 +85,7 @@ api.interceptors.response.use(
 
       try {
         const refreshRes = await axios.post(
-          env.api.refreshTokenURL,
+          env.api.refreshTokenURL ? env.api.refreshTokenURL : '',
           {},
           { withCredentials: true },
         );
