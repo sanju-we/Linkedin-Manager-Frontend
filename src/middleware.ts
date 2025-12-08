@@ -13,10 +13,10 @@ function proxy(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
     // Public routes that don't need a token
-    const publicRoutes = ['/login', '/admin/login'];
+    const publicRoutes = ['/login', '/a/login'];
 
     // Protected routes that require authentication
-    const protectedRoutes = ['/profile'];
+    const protectedRoutes = ['/profile','/a'];
 
     // If accessing a protected route without token → redirect to login
     if (protectedRoutes.includes(pathname) && !token) {

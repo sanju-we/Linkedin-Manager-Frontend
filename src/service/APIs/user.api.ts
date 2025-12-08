@@ -8,24 +8,27 @@ const post = postRequest;
 const get = getRequest;
 
 export const USER_SERVICE = {
-  LOGIN: (data: LoginRequest): Promise<ApiResponse | null> => 
+  LOGIN: (data: LoginRequest): Promise<ApiResponse | null> =>
     post(USER_ROUTES.auth.login, data),
-  
-  GETPROFILE: (): Promise<ApiResponse<UserData> | null> => 
+
+  GETPROFILE: (): Promise<ApiResponse<UserData> | null> =>
     get(USER_ROUTES.profile.profile),
-  
-  UPDATE_COUNT: (count: number): Promise<ApiResponse<UserData> | null> => 
+
+  LOGOUT: (): Promise<ApiResponse | null> =>
+    post(USER_ROUTES.auth.logout, {}),
+
+  UPDATE_COUNT: (count: number): Promise<ApiResponse<UserData> | null> =>
     post(USER_ROUTES.profile.updateCount, { count }),
-  
+
   UPLOAD_IMAGE: async (file: File): Promise<ApiResponse<UserData> | null> => {
     try {
       // Compress image before uploading (max 1920x1920, quality 0.8)
       const compressedFile = await compressImage(file, 1920, 1920, 0.8);
-      
+
       // Create FormData with the field name 'image' (must match backend)
       const formData = new FormData();
       formData.append('image', compressedFile); // Field name matches backend: upload.single('image')
-      
+
       // Log in development
       if (process.env.NODE_ENV === 'development') {
         console.log('Uploading image:', {
@@ -36,7 +39,7 @@ export const USER_SERVICE = {
           fileType: compressedFile.type,
         });
       }
-      
+
       return post(USER_ROUTES.profile.uploadImage, formData, { showToast: true });
     } catch (error) {
       console.error('Image compression error:', error);

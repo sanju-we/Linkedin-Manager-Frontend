@@ -4,7 +4,8 @@ const USER_PROFILE = `${BASE}/profile`
 
 export const USER_ROUTES = {
   auth: {
-    login: `${USER_AUTH}/login`
+    login: `${USER_AUTH}/login`,
+    logout: `${USER_AUTH}/logout`
   },
   profile: {
     profile: `${USER_PROFILE}/getProfile`,

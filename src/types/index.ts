@@ -16,6 +16,11 @@ export interface UserData {
   updatedAt: string;
 }
 
+export interface AdminData  {
+  name:string,
+  role:string
+}
+
 export interface UserAuth {
   id: string;
   name: string;
