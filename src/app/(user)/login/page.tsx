@@ -51,6 +51,7 @@ export default function LoginPage() {
             const data = await USER_SERVICE.LOGIN({ name, password });
             if (data?.success) {
                 toast.success("Login successful!");
+                router.prefetch = () => {};
                 setTimeout(() => {
                     router.push("/profile");
                 }, 500);
