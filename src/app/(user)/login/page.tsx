@@ -54,7 +54,7 @@ export default function LoginPage() {
                 router.prefetch = () => {};
                 setTimeout(() => {
                     router.push("/profile");
-                }, 500);
+                }, 2000);
             }
         } catch (error: any) {
             setApiError(error?.message || "Login failed. Please try again.");
