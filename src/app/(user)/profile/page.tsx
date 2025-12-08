@@ -2,46 +2,47 @@
 
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { ExternalLink, Calendar, Shield, Loader2, User, Mail, LogOut } from "lucide-react";
+import { ExternalLink, Calendar, Shield, Loader2, Plus, Upload, TrendingUp, TrendingDown, Save } from "lucide-react";
 import { USER_SERVICE } from "@/service/APIs/user.api";
-import { useRouter } from "next/navigation";
+import { UserData } from "@/types";
+import { formatDate, getInitials, getRoleBadgeColor, isFriday, formatGrowth } from "@/lib/utils";
+import ImageUploadModal from "@/components/ImageUploadModal";
+import toast from "react-hot-toast";
 
 const getUserProfile = async () => {
   const user = await USER_SERVICE.GETPROFILE();
-  return user
+  if (process.env.NODE_ENV === 'development') {
+    console.log('User profile data:', user?.data);
+  }
+  return user?.data;
 };
-
-interface UserData {
-  _id: string;
-  name: string;
-  role: string;
-  linkedAcc?: string;
-  weeklyLimitPic?: string[];
-  currentCount?: number;
-  profile?: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export default function ProfilePage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [loggingOut, setLoggingOut] = useState(false);
-  const router = useRouter();
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [updatingCount, setUpdatingCount] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [countInput, setCountInput] = useState("");
 
   useEffect(() => {
     fetchUserProfile();
   }, []);
 
+  // Update count input when user data changes
+  useEffect(() => {
+    if (user) {
+      setCountInput(user.currentCount?.toString() || "0");
+    }
+  }, [user]);
+
   const fetchUserProfile = async () => {
     try {
       setLoading(true);
       setError("");
-      const response = await getUserProfile();
-      if (response?.data) {
-        setUser(response.data);
-      }
+      const data = await getUserProfile();
+      setUser(data as UserData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load profile");
     } finally {
@@ -49,52 +50,66 @@ export default function ProfilePage() {
     }
   };
 
-  const handleLogout = async () => {
+  const handleUpdateCount = async () => {
+    const newCount = parseInt(countInput, 10);
+    
+    // Validate input
+    if (isNaN(newCount) || newCount < 0) {
+      toast.error("Please enter a valid number (0 or greater)");
+      return;
+    }
+
+    // Check if it's Friday (if you want to keep this restriction)
+    // if (!isFriday()) {
+    //   toast.error("Count can only be updated on Fridays");
+    //   return;
+    // }
+
+    setUpdatingCount(true);
     try {
-      setLoggingOut(true);
-      // Call API to logout (optional based on implementation, but good to have)
-      await USER_SERVICE.LOGOUT();
-
-      // Cleanup client side stuff if needed
-
-      // Redirect to login
-      router.push("/login");
-    } catch (error) {
-      console.error("Logout failed", error);
-      // Fallback redirect
-      router.push("/login");
+      const response = await USER_SERVICE.UPDATE_COUNT(newCount);
+      if (response?.success && response.data) {
+        // Optimistic update
+        setUser((prev) => prev ? { ...prev, ...response.data } : null);
+        toast.success("Count updated successfully!");
+      } else {
+        toast.error("Failed to update count");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update count");
     } finally {
-      setLoggingOut(false);
+      setUpdatingCount(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+  const handleImageUpload = async (file: File): Promise<string | null> => {
+    setUploading(true);
+    try {
+      console.log('Uploading image');
+      console.log(`file = ${JSON.stringify(file)}`);
+      const response = await USER_SERVICE.UPLOAD_IMAGE(file);
+      if (response?.success && response.data) {
+        // Optimistic update - add new image to the array
+        setUser((prev) => {
+          if (!prev) return null;
+          const newImages = [...(prev.weeklyLimitPic || []), response.data?.weeklyLimitPic?.[response.data.weeklyLimitPic.length - 1] || ''].filter(Boolean);
+          return { ...prev, weeklyLimitPic: newImages, ...response.data };
+        });
+        toast.success("Image uploaded successfully!");
+        return response.data.weeklyLimitPic?.[response.data.weeklyLimitPic.length - 1] || null;
+      } else {
+        toast.error("Failed to upload image");
+        return null;
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload image");
+      return null;
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const getRoleBadgeColor = (role: string) => {
-    const colors: Record<string, string> = {
-      admin: "bg-purple-100 text-purple-700 border-purple-300",
-      user: "bg-blue-100 text-blue-700 border-blue-300",
-      moderator: "bg-green-100 text-green-700 border-green-300",
-    };
-    return colors[role.toLowerCase()] || colors.user;
-  };
+  const growthData = formatGrowth(user?.growth);
 
   if (loading) {
     return (
@@ -134,37 +149,16 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4 md:p-6">
       <div className="max-w-4xl mx-auto">
-
-        {/* Logout Button - Top Right */}
-        <div className="flex justify-end mb-4">
-          <button
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-red-600 border-2 border-red-200 rounded-xl font-medium hover:bg-red-50 hover:border-red-300 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loggingOut ? (
-              <>
-                <Loader2 className="animate-spin" size={18} />
-                Logging out...
-              </>
-            ) : (
-              <>
-                <LogOut size={18} />
-                Logout
-              </>
-            )}
-          </button>
-        </div>
-
+        
         {/* Profile Card */}
         <div className="bg-white shadow-2xl rounded-3xl overflow-hidden">
-
+          
           {/* Header Banner */}
           <div className="h-32 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
-
+          
           {/* Profile Content */}
           <div className="px-6 md:px-8 pb-8">
-
+            
             {/* Avatar and Basic Info */}
             <div className="flex flex-col md:flex-row items-center md:items-end gap-6 -mt-16 mb-6">
               <div className="relative">
@@ -192,11 +186,11 @@ export default function ProfilePage() {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              
               {/* Current Count Card */}
               <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border-2 border-blue-100 hover:shadow-lg transition-shadow">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-4">
                   <div>
                     <p className="text-gray-600 font-medium text-sm mb-1">Current Count</p>
                     <p className="text-4xl font-bold text-blue-600">{user.currentCount || 0}</p>
@@ -207,11 +201,74 @@ export default function ProfilePage() {
                     </svg>
                   </div>
                 </div>
+                <div className="space-y-3">
+                  <div>
+                    <label htmlFor="countInput" className="block text-sm font-medium text-gray-700 mb-2">
+                      Update Count
+                    </label>
+                    <input
+                      id="countInput"
+                      type="number"
+                      min="0"
+                      value={countInput}
+                      onChange={(e) => setCountInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleUpdateCount();
+                        }
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                      placeholder="Enter count"
+                      disabled={updatingCount}
+                    />
+                  </div>
+                  <button
+                    onClick={handleUpdateCount}
+                    disabled={updatingCount || countInput === (user.currentCount?.toString() || "0")}
+                    className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {updatingCount ? (
+                      <>
+                        <Loader2 className="animate-spin" size={18} />
+                        Updating...
+                      </>
+                    ) : (
+                      <>
+                        <Save size={18} />
+                        Update Count
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Growth Card */}
+              <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border-2 border-green-100 hover:shadow-lg transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-600 font-medium text-sm mb-1">Growth</p>
+                    <div className="flex items-center gap-2">
+                      <p className={`text-4xl font-bold ${growthData.color}`}>
+                        {growthData.value}
+                      </p>
+                      {growthData.isPositive ? (
+                        <TrendingUp size={24} className="text-green-600" />
+                      ) : (
+                        <TrendingDown size={24} className="text-red-600" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-green-200 p-4 rounded-2xl">
+                    <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                  </div>
+                </div>
               </div>
 
               {/* Weekly Pictures Count Card */}
               <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl border-2 border-purple-100 hover:shadow-lg transition-shadow">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-4">
                   <div>
                     <p className="text-gray-600 font-medium text-sm mb-1">Weekly Pictures</p>
                     <p className="text-4xl font-bold text-purple-600">{user.weeklyLimitPic?.length || 0}</p>
@@ -222,19 +279,26 @@ export default function ProfilePage() {
                     </svg>
                   </div>
                 </div>
+                <button
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="w-full bg-purple-600 text-white py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Upload size={18} />
+                  Upload Image
+                </button>
               </div>
             </div>
 
             {/* Account Details */}
             <div className="space-y-4">
-
+              
               {/* Linked Account */}
               {user.linkedAcc && (
                 <div className="p-6 bg-gray-50 rounded-2xl border border-gray-200 hover:shadow-md transition-shadow">
                   <div className="flex items-start gap-4">
                     <div className="bg-blue-100 p-3 rounded-xl">
                       <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
                       </svg>
                     </div>
                     <div className="flex-1">
@@ -271,26 +335,24 @@ export default function ProfilePage() {
                       <span className="text-gray-900 font-medium ml-2">{formatDate(user.updatedAt)}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 text-sm">
-                    <User size={18} className="text-gray-400 flex-shrink-0" />
-                    <div>
-                      <span className="text-gray-500">User ID:</span>
-                      <span className="text-gray-900 font-mono text-xs ml-2">{user._id}</span>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
 
             {/* Weekly Pictures Gallery */}
-            {user.weeklyLimitPic && user.weeklyLimitPic.length > 0 && (
-              <div className="mt-6 p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200">
-                <h3 className="text-gray-700 font-semibold text-lg mb-4 flex items-center gap-2">
+            <div className="mt-6 p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-gray-700 font-semibold text-lg flex items-center gap-2">
                   <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                   Weekly Pictures
+                  {user.weeklyLimitPic && user.weeklyLimitPic.length > 0 && (
+                    <span className="text-sm font-normal text-gray-500">({user.weeklyLimitPic.length})</span>
+                  )}
                 </h3>
+              </div>
+              {user.weeklyLimitPic && user.weeklyLimitPic.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {user.weeklyLimitPic.map((pic, index) => (
                     <div key={index} className="relative aspect-square rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all hover:scale-105">
@@ -303,12 +365,26 @@ export default function ProfilePage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Upload size={48} className="mx-auto mb-4 text-gray-400" />
+                  <p>No images uploaded yet</p>
+                  <p className="text-sm mt-2">Click "Upload Image" to add your first weekly picture</p>
+                </div>
+              )}
+            </div>
 
           </div>
         </div>
       </div>
+
+      {/* Image Upload Modal */}
+      <ImageUploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onUpload={handleImageUpload}
+        existingImages={user.weeklyLimitPic || []}
+      />
     </div>
   );
 }
