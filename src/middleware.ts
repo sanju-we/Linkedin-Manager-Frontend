@@ -2,10 +2,6 @@
 // This file is kept for compatibility - Next.js 16 may still check for it
 // The main proxy logic is in proxy.ts
 import { NextResponse, NextRequest } from 'next/server';
-import { cookies } from 'next/headers';
-
-const cookieStore = await cookies();
-const cookieHeader = cookieStore.toString();
 
 export function middleware(req: NextRequest) {
     // Re-export proxy function for compatibility
