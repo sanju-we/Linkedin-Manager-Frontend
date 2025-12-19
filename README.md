@@ -72,15 +72,6 @@ src/
 
 ## 🔧 Configuration
 
-### Environment Variables
-
-All environment variables are accessed through `src/lib/env.ts`:
-
-- `NEXT_PUBLIC_API_BASE_URL`: Base URL for API requests
-- `NEXT_PUBLIC_REFRESH_TOKEN_URL`: URL for token refresh endpoint
-- `NEXT_PUBLIC_APP_NAME`: Application name
-- `NEXT_PUBLIC_APP_DESCRIPTION`: Application description
-
 ### API Service
 
 The API service is centralized in `src/service/`:
