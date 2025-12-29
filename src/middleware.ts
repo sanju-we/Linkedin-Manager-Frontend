@@ -10,7 +10,7 @@ export async function middleware(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(`${process.env.API_URL}/auth/verify`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify`, {
       headers: {
         cookie: req.headers.get('cookie') || '',
       },
