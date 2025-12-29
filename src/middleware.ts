@@ -16,7 +16,7 @@ function proxy(req: NextRequest) {
     const publicRoutes = ['/login', '/a/login'];
 
     // Protected routes that require authentication
-    const protectedRoutes = [''];
+    const protectedRoutes = ['/profile'];
 
     // If accessing a protected route without token → redirect to login
     if (protectedRoutes.includes(pathname) && !token) {
