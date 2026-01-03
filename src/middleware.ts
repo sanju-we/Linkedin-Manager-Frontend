@@ -1,46 +1,32 @@
-// client/src/middleware.ts
-// This file is kept for compatibility - Next.js 16 may still check for it
-// The main proxy logic is in proxy.ts
 import { NextResponse, NextRequest } from 'next/server';
-import { cookies } from 'next/headers';
 
-const cookieStore = await cookies();
-const cookieHeader = cookieStore.toString();
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-export function middleware(req: NextRequest) {
-    // Re-export proxy function for compatibility
-    return proxy(req);
-}
+  const publicRoutes = ['/login', '/a/login','/profile'];
 
-function proxy(req: NextRequest) {
-    const token = req.cookies.get('accessToken')?.value;
-    const { pathname } = req.nextUrl;
-
-    // Public routes that don't need a token
-    const publicRoutes = ['/login', '/a/login'];
-
-    // Protected routes that require authentication
-    const protectedRoutes = [''];
-
-    // If accessing a protected route without token → redirect to login
-    if (protectedRoutes.includes(pathname) && !token) {
-        return NextResponse.redirect(new URL('/login', req.url));
-    }
-
-    // If the user is trying to access the home page (/) without a token → redirect to login
-    if (pathname === '/' && !token) {
-        return NextResponse.redirect(new URL('/login', req.url));
-    }
-
-    // If the user is already logged in and tries to visit a public route → send them to profile
-    if (publicRoutes.includes(pathname) && token) {
-        return NextResponse.redirect(new URL('/profile', req.url));
-    }
-
-    // Otherwise let the request continue (this allows /login to render when no token)
+  if (publicRoutes.includes(pathname)) {
     return NextResponse.next();
+  }
+
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify`, {
+      headers: {
+        cookie: req.headers.get('cookie') || '',
+      },
+      credentials: 'include',
+    });
+
+    if (!res.ok) {
+      return NextResponse.redirect(new URL('/login', req.url));
+    }
+
+    return NextResponse.next();
+  } catch {
+    return NextResponse.redirect(new URL('/login', req.url));
+  }
 }
 
 export const config = {
-    matcher: ['/((?!_next|api|favicon.ico|.*\\..*).*)'],
+  matcher: ['/((?!_next|favicon.ico|.*\\..*).*)'],
 };
